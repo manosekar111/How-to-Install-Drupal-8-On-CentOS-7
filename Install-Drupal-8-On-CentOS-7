@@ -1,0 +1,166 @@
+Step:1 Install Apache Web Server (httpd) & PHP 5.5
+
+Drupal 8 require at least PHP 5.5 or above, But php 5.5 is not available in the default yum repository so we will set the following repositories so that we can install php 5.5 using yum command.
+
+[root@drupal ~]# rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+[root@drupal ~]# rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+
+Use below command to install web server ( httpd), PHP5.5 & other required php dependencies.
+
+[root@drupal ~]# yum install httpd php55w php55w-opcache php55w-mbstring php55w-gd php55w-xml php55w-pear php55w-fpm php55w-mysql
+
+Start the Web Server Service
+
+[root@drupal ~]# systemctl start httpd
+[root@drupal ~]# systemctl enable httpd
+ln -s '/usr/lib/systemd/system/httpd.service' '/etc/systemd/system/multi-user.target.wants/httpd.service'
+[root@drupal ~]#
+
+In case firewall is running on the Server then use below commands to open 80 & 443 port.
+
+[root@drupal ~]# firewall-cmd --permanent --zone=public --add-service=http
+success
+[root@drupal ~]# firewall-cmd --permanent --zone=public --add-service=https
+success
+[root@drupal ~]# firewall-cmd --reload
+success
+[root@drupal ~]#
+
+Step:2 Install Database Server ( MariaDB )
+
+In CentOS 7 mariadb is default database server. Use below command to install mariadb .
+
+[root@drupal ~]# yum install mariadb-server mariadb
+
+Start the Database service using below command
+
+[root@drupal ~]# systemctl start mariadb
+[root@drupal ~]# systemctl enable mariadb
+ln -s '/usr/lib/systemd/system/mariadb.service' '/etc/systemd/system/multi-user.target.wants/mariadb.service'
+[root@drupal ~]#
+
+Set the “root password”, “Remove anonymous users” and “disable remote root login” and other parameters using below “mysql_secure_installation” command.
+
+[root@drupal ~]# mysql_secure_installation
+
+Create the database for drupal
+
+[root@drupal ~]# mysql -u root -p
+
+MariaDB [(none)]> create database drupal_db;
+Query OK, 1 row affected (0.00 sec)
+MariaDB [(none)]>
+
+Create a user for database (drupal_db) and grant all privileges to the user on the database ‘drupal_db‘
+
+MariaDB [(none)]> CREATE USER db_user@localhost IDENTIFIED BY 'Durpal@123#';
+Query OK, 0 rows affected (0.01 sec)
+
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON drupal_db.* TO db_user@localhost;
+Query OK, 0 rows affected (0.00 sec)
+
+MariaDB [(none)]> FLUSH PRIVILEGES;
+Query OK, 0 rows affected (0.00 sec)
+
+MariaDB [(none)]> exit
+Bye
+[root@drupal ~]#
+
+Restart the DB service
+
+[root@drupal ~]# systemctl restart mariadb
+[root@drupal ~]#
+
+Step:3 Download Drupal 8 using wget command.
+
+Download the latest version of drupal from from their official site “Download Drupal”
+
+We can also use wget command to download drupal from the terminal. In case wget and gzip package is not installed then below command to install wget and gzip command.
+
+[root@drupal ~]# yum install wget gzip
+[root@drupal ~]# wget https://ftp.drupal.org/files/projects/drupal-8.0.2.tar.gz
+
+Step:4 Untar the downloaded file and set the required permissions.
+
+Use the below command to untar the downloaded drupal file.
+
+[root@drupal ~]# ls -l drupal-8.0.2.tar.gz
+-rw-r--r--. 1 root root 11720487 Jan 6 17:57 drupal-8.0.2.tar.gz
+[root@drupal ~]#
+[root@drupal ~]# tar -zxpvf drupal-8.0.2.tar.gz
+
+Move the drupal folder to web server’s document root ( /var/www/html ) and set the permissions.
+
+[root@drupal ~]# mv drupal-8.0.2 /var/www/html/drupal
+[root@drupal ~]# chown -R apache:apache /var/www/html/drupal/
+[root@drupal ~]#
+
+Now create settings file (settings.php ), a default settings file (default.settings.php) is already placed in the folder (/var/www/html/drupal/sites/default).
+
+[root@drupal ~]# cd /var/www/html/drupal/sites/default
+[root@drupal default]# cp -p default.settings.php settings.php
+[root@drupal default]#
+
+Note : Set the Selinux rule on the folder “/var/www/html/drupal/” in case SElinux is enable on your Linux box.
+
+[root@drupal ~]# chcon -R -t httpd_sys_content_rw_t /var/www/html/drupal/
+[root@drupal ~]#
+
+Step:5 Start the Drupal installation
+
+Open the web browser and type “http://<server_ip_address_or_hostname>/drupal”
+
+Choose your preferred language.
+
+Choose-language-drupal-installation
+
+Click on “Save and Continue”
+
+Select the installation Profile.
+
+Select-installation-profile-drupal
+
+Verify Requirements for Drupal Installation :
+
+Drupal-installation-requirements-review
+
+click on “continue anyway”
+
+Database Configuration : Use drupal database, user name & its password that we created  in above steps.
+
+Database configuration-drupal-installation
+
+Click on ‘Save and Continue’ and then Installation will start as shown in below.
+
+Installing-Drupal-progress
+
+Specify the Site info :
+
+Please change the below parameters as per your setup and in my case i am using below :
+
+    Site Name : drupal.example.com
+    Site email address : linuxtechi@example.com
+    User Name for Site Maintenance Account : linuxtechi
+    Password : XXXXX
+    Country : India
+    Default time zone : UTC
+
+configure-site-drupal-install
+
+Save-and-continue-Drupal-installation
+
+Click on ‘Save and Continue’ to finish the installation.
+
+Drupal-installation-completed
+
+Now Add the content to your site, In my case when i click on add Content , i was getting an error “URL /drupal/node/add was not found on this server”
+
+404-Not-Found-error-drupal-install
+
+To resolve this issue , i have changed the parameter ‘AllowOverride none’ to ‘AllowOverride all’ in the web server config file ‘/etc/httpd/conf/httpd.conf’ and restart the web server service:
+
+[root@drupal ~]# systemctl restart httpd
+
+Add-content-drupal-sites
+
+Now the Drupal installation is Completed. Add content to your site have fun 🙂
